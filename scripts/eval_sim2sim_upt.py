@@ -47,7 +47,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--motion", required=True)
-    ap.add_argument("--category", default="walk", choices=["walk", "run", "dance", "auto"])
+    ap.add_argument("--category", default="walk", choices=["walk", "run", "dance", "idle", "auto"])
     ap.add_argument("--robot", default="f1", choices=["f1"])
     ap.add_argument("--headless", action="store_true", default=True)
     ap.add_argument("--stand_hold", type=float, default=2.0)
@@ -161,6 +161,11 @@ def main():
 
     # UPT phase/mode injection (obs extension): policy trained with UPT_PHASE_COND=1 has obs 164+4
     upt_obs = (obs_dim == 5 * action_dim + 15 + 4)
+    sibling_obs = (obs_dim == 5 * action_dim + 15 + 7)  # sibling F1-Unified-Tracker: +skill one-hot(4) + contact phase(3)
+    foot_contact = md["foot_contact"].astype(np.float32) if "foot_contact" in md else None
+    skill_id = int(md["skill_id"]) if "skill_id" in md else {"walk":1,"run":2,"dance":3}.get(category,1)
+    if sibling_obs:
+        print(f"[sibling] 167-D layout: skill one-hot id={skill_id}, contact phase from foot_contact ({'available' if foot_contact is not None else 'MISSING'})")
     # phase-rate exactly as in training (upt_commands.attach_phase_mode): gradient(phase)*fps, clamp +-10
     phase_dot = np.clip(np.gradient(phase) * fps, -10.0, 10.0).astype(np.float32) if len(phase) > 1 else np.zeros_like(phase)
     use_real_phase = upt_obs and args.phase_obs_mode == "real"
@@ -208,7 +213,15 @@ def main():
         cmd_part = np.concatenate([to_px(rjpos), to_px(rjvel)])
         rest = np.concatenate([anchor_pos_b, rot[:, :2].flatten(),
                                base_lin, base_ang, to_px(jpos - default_pos), to_px(jvel), last_action])
-        if upt_obs:
+        if sibling_obs:
+            if foot_contact is not None:
+                c = foot_contact[min(t_ref, len(foot_contact)-1)]
+            else:
+                c = np.array([1.0, 1.0], np.float32)
+            flight = (1 - c[0]) * (1 - c[1])
+            oh = np.zeros(4, np.float32); oh[skill_id] = 1.0
+            obs = np.concatenate([cmd_part, rest, oh, np.array([c[0], c[1], flight], np.float32)]).astype(np.float32)
+        elif upt_obs:
             if use_real_phase:
                 pdot = float(phase_dot[min(t_ref, len(phase_dot)-1)]) if mode_val else 0.0
                 upt4 = np.array([np.sin(2*np.pi*phase_val), np.cos(2*np.pi*phase_val), pdot, float(mode_val)], np.float32)
@@ -232,6 +245,7 @@ def main():
         mujoco.mj_step(model, data)
 
     def record(phase_tag, t_ref, anchor_pos_b, jpos, prev_foot_pos):
+        capture()
         r_anchor_z = float(data.xpos[anchor_mj][2])
         ref_anchor_z = float(ref_bpos[t_ref, anchor_npz_idx][2])
         M["phase"].append(phase_tag); M["t"].append(len(M["t"]) * POLICY_DT)
@@ -272,6 +286,19 @@ def main():
         dadr = model.jnt_dofadr[0]
         data.qvel[0:3] += np.array([1.0, 0.0, 0.0]) * (force_N / 35.0)
 
+    recorder = None
+    if args.record:
+        import imageio.v2 as _imageio
+        _cam = mujoco.MjvCamera(); _cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
+        _cam.trackbodyid = int(model.jnt_bodyid[0]); _cam.distance = 4.0; _cam.elevation = -10.0; _cam.azimuth = 90.0
+        model.vis.global_.offwidth = max(960, model.vis.global_.offwidth); model.vis.global_.offheight = max(540, model.vis.global_.offheight)
+        recorder = {"renderer": mujoco.Renderer(model, height=540, width=960), "cam": _cam,
+                    "writer": _imageio.get_writer(args.record, fps=int(round(1.0 / POLICY_DT)), quality=8, macro_block_size=1)}
+        print(f"[record] -> {args.record}")
+    def capture():
+        if recorder is not None:
+            recorder["renderer"].update_scene(data, camera=recorder["cam"])
+            recorder["writer"].append_data(recorder["renderer"].render())
     t0 = time.time()
     # P0 stand: track stand pose (commands = stand joints), take mid-phase push
     for i in range(steps_stand):
@@ -339,6 +366,8 @@ def main():
         last_action = act.copy()
 
     wall = time.time() - t0
+    if recorder is not None:
+        recorder["writer"].close(); print("[record] saved")
     # ---------------- gates ----------------
     P = np.array(M["phase"])
     def seg(tag):
