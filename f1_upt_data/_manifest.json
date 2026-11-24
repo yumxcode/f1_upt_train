@@ -12,8 +12,18 @@
    "core_frames": 311,
    "core_frac": 0.861,
    "phase_source": "contact_events",
-   "phase_cycles": 4,
-   "phase_coverage_core": 0.987
+   "phase_cycles": 3,
+   "phase_coverage_core": 0.99,
+   "ground": {
+    "sole_pre_p50": 0.0306,
+    "sole_pre_min": 0.0054,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 1.0,
+    "airborne_frac_ref": 0.0,
+    "snap_thr_m": 0.1,
+    "pass": true
+   }
   },
   {
    "name": "walk_B2_-_walk_toand",
@@ -27,7 +37,17 @@
    "core_frac": 0.85,
    "phase_source": "contact_events",
    "phase_cycles": 4,
-   "phase_coverage_core": 0.986
+   "phase_coverage_core": 0.982,
+   "ground": {
+    "sole_pre_p50": 0.0242,
+    "sole_pre_min": 0.0048,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 1.0,
+    "airborne_frac_ref": 0.0,
+    "snap_thr_m": 0.1,
+    "pass": true
+   }
   },
   {
    "name": "walk_B3_-_walk1",
@@ -41,7 +61,17 @@
    "core_frac": 0.884,
    "phase_source": "contact_events",
    "phase_cycles": 6,
-   "phase_coverage_core": 0.984
+   "phase_coverage_core": 0.984,
+   "ground": {
+    "sole_pre_p50": 0.0436,
+    "sole_pre_min": -0.0021,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 1.0,
+    "airborne_frac_ref": 0.0,
+    "snap_thr_m": 0.1,
+    "pass": true
+   }
   },
   {
    "name": "walk_B4_-and_to_walk_back",
@@ -55,7 +85,17 @@
    "core_frac": 0.883,
    "phase_source": "contact_events",
    "phase_cycles": 4,
-   "phase_coverage_core": 0.989
+   "phase_coverage_core": 0.989,
+   "ground": {
+    "sole_pre_p50": 0.0216,
+    "sole_pre_min": 0.011,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 1.0,
+    "airborne_frac_ref": 0.0,
+    "snap_thr_m": 0.1,
+    "pass": true
+   }
   },
   {
    "name": "run_C2_-_Run_toand",
@@ -69,7 +109,17 @@
    "core_frac": 0.842,
    "phase_source": "contact_events",
    "phase_cycles": 5,
-   "phase_coverage_core": 0.985
+   "phase_coverage_core": 0.985,
+   "ground": {
+    "sole_pre_p50": 0.0276,
+    "sole_pre_min": -0.001,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 0.953,
+    "airborne_frac_ref": 0.047,
+    "snap_thr_m": 0.05,
+    "pass": true
+   }
   },
   {
    "name": "run_C3_-_Run",
@@ -81,9 +131,19 @@
    "suf": 25,
    "core_frames": 85,
    "core_frac": 0.63,
-   "phase_source": "global_cycle_degraded",
-   "phase_cycles": 0,
-   "phase_coverage_core": 0.0
+   "phase_source": "contact_events",
+   "phase_cycles": 2,
+   "phase_coverage_core": 0.976,
+   "ground": {
+    "sole_pre_p50": 0.0319,
+    "sole_pre_min": -0.0076,
+    "sole_post_p50": 0.0007,
+    "sole_post_min": 0.0,
+    "stance_frac": 0.726,
+    "airborne_frac_ref": 0.274,
+    "snap_thr_m": 0.05,
+    "pass": true
+   }
   },
   {
    "name": "run_C4_-_Run_to_walk1",
@@ -97,7 +157,17 @@
    "core_frac": 0.78,
    "phase_source": "contact_events",
    "phase_cycles": 3,
-   "phase_coverage_core": 0.983
+   "phase_coverage_core": 0.983,
+   "ground": {
+    "sole_pre_p50": 0.0235,
+    "sole_pre_min": -0.0015,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 0.974,
+    "airborne_frac_ref": 0.026,
+    "snap_thr_m": 0.05,
+    "pass": true
+   }
   },
   {
    "name": "run_C5_-_walk_to_run",
@@ -110,8 +180,18 @@
    "core_frames": 271,
    "core_frac": 0.844,
    "phase_source": "contact_events",
-   "phase_cycles": 4,
-   "phase_coverage_core": 0.985
+   "phase_cycles": 5,
+   "phase_coverage_core": 0.982,
+   "ground": {
+    "sole_pre_p50": 0.0226,
+    "sole_pre_min": -0.0079,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 0.953,
+    "airborne_frac_ref": 0.047,
+    "snap_thr_m": 0.05,
+    "pass": true
+   }
   },
   {
    "name": "run_Run_C24_-_quick_sideep_left",
@@ -125,7 +205,17 @@
    "core_frac": 0.747,
    "phase_source": "contact_events",
    "phase_cycles": 3,
-   "phase_coverage_core": 0.98
+   "phase_coverage_core": 0.973,
+   "ground": {
+    "sole_pre_p50": 0.02,
+    "sole_pre_min": 0.0047,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 0.98,
+    "airborne_frac_ref": 0.02,
+    "snap_thr_m": 0.05,
+    "pass": true
+   }
   },
   {
    "name": "run_Run_C25_-_quick_sideep_right",
@@ -138,8 +228,18 @@
    "core_frames": 166,
    "core_frac": 0.769,
    "phase_source": "contact_events",
-   "phase_cycles": 2,
-   "phase_coverage_core": 0.988
+   "phase_cycles": 3,
+   "phase_coverage_core": 0.982,
+   "ground": {
+    "sole_pre_p50": 0.0194,
+    "sole_pre_min": 0.0087,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 0.972,
+    "airborne_frac_ref": 0.028,
+    "snap_thr_m": 0.05,
+    "pass": true
+   }
   },
   {
    "name": "dance_dance2s1ta",
@@ -153,7 +253,17 @@
    "core_frac": 0.937,
    "phase_source": "power_envelope_beats",
    "phase_cycles": 8,
-   "phase_coverage_core": 0.988
+   "phase_coverage_core": 0.988,
+   "ground": {
+    "sole_pre_p50": 0.0146,
+    "sole_pre_min": -0.0278,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 1.0,
+    "airborne_frac_ref": 0.0,
+    "snap_thr_m": 0.1,
+    "pass": true
+   }
   },
   {
    "name": "dance_dance1s3",
@@ -167,7 +277,17 @@
    "core_frac": 0.992,
    "phase_source": "power_envelope_beats",
    "phase_cycles": 11,
-   "phase_coverage_core": 0.998
+   "phase_coverage_core": 0.998,
+   "ground": {
+    "sole_pre_p50": 0.0094,
+    "sole_pre_min": -0.0467,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 1.0,
+    "airborne_frac_ref": 0.0,
+    "snap_thr_m": 0.1,
+    "pass": true
+   }
   },
   {
    "name": "dance_dancef1train",
@@ -181,7 +301,17 @@
    "core_frac": 0.958,
    "phase_source": "global_cycle_degraded",
    "phase_cycles": 0,
-   "phase_coverage_core": 0.0
+   "phase_coverage_core": 0.0,
+   "ground": {
+    "sole_pre_p50": 0.0151,
+    "sole_pre_min": -0.0147,
+    "sole_post_p50": 0.0,
+    "sole_post_min": 0.0,
+    "stance_frac": 1.0,
+    "airborne_frac_ref": 0.0,
+    "snap_thr_m": 0.1,
+    "pass": true
+   }
   }
  ]
 }
