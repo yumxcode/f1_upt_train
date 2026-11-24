@@ -139,6 +139,8 @@ def main():
 
     # UPT phase/mode injection (obs extension): policy trained with UPT_PHASE_COND=1 has obs 164+4
     upt_obs = (obs_dim == 5 * action_dim + 15 + 4)
+    # phase-rate exactly as in training (upt_commands.attach_phase_mode): gradient(phase)*fps, clamp +-10
+    phase_dot = np.clip(np.gradient(phase) * fps, -10.0, 10.0).astype(np.float32) if len(phase) > 1 else np.zeros_like(phase)
     if upt_obs:
         print(f"[upt] phase-conditioned policy detected (obs {obs_dim} = base {5*action_dim+15} + 4)")
 
@@ -180,7 +182,8 @@ def main():
         obs = np.concatenate([to_px(rjpos), to_px(rjvel), anchor_pos_b, rot[:, :2].flatten(),
                               base_lin, base_ang, to_px(jpos - default_pos), to_px(jvel), last_action])
         if upt_obs:
-            obs = np.concatenate([obs, [np.sin(2*np.pi*phase_val), np.cos(2*np.pi*phase_val), 0.0, float(mode_val)]]).astype(np.float32)
+            pdot = float(phase_dot[min(t_ref, len(phase_dot)-1)]) if mode_val else 0.0
+            obs = np.concatenate([obs, [np.sin(2*np.pi*phase_val), np.cos(2*np.pi*phase_val), pdot, float(mode_val)]]).astype(np.float32)
         with torch.no_grad():
             act = actor(pm.normalize_obs(torch.from_numpy(obs).unsqueeze(0), normalizer)).squeeze(0).numpy().astype(np.float32)
         return act, jpos, jvel, anchor_pos_b
