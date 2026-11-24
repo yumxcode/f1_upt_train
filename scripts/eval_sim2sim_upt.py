@@ -110,7 +110,17 @@ def main():
     mode = md["mode"].astype(np.int64) if "mode" in md else np.ones(T, np.int64)
 
     # ---- policy ----
-    actor, normalizer, obs_dim, action_dim = pm.load_policy(args.checkpoint, "cpu")
+    # MoE-aware policy load (falls back to plain MLP when no MoE keys)
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location("upt_actor", REPO / "source/whole_body_tracking/whole_body_tracking/tasks/tracking/config/f1/agents/upt_actor.py")
+    _ua = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_ua)
+    _ck = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    _md = _ck.get("model_dict") or _ck.get("model_state_dict") or {}
+    if any(".expert0." in k for k in _md):
+        actor, normalizer, obs_dim, action_dim = _ua.load_policy_moe(args.checkpoint, "cpu")
+        print("[upt] MoE policy detected")
+    else:
+        actor, normalizer, obs_dim, action_dim = pm.load_policy(args.checkpoint, "cpu")
 
     # PhysX order map (same as play_mujoco)
     F1_PHYSX_JOINT_ORDER = pm.__dict__.get("F1_PHYSX_JOINT_ORDER") or [

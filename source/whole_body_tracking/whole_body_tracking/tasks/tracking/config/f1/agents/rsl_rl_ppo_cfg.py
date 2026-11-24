@@ -1,3 +1,4 @@
+import os
 from isaaclab.utils import configclass
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
 
@@ -29,3 +30,13 @@ class F1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
+
+    def __post_init__(self):
+        super().__post_init__()
+        # UPT C3 (MoE-lite): learned-router 2-expert final actor layer. Default off.
+        if os.environ.get("UPT_MOE", "0") == "1":
+            from whole_body_tracking.tasks.tracking.config.f1.agents.upt_actor import UPTActorCritic
+            self.actor_critic_class = UPTActorCritic
+            print("[UPT][PROBE] runner cfg: actor_critic_class=UPTActorCritic (MoE-lite ON)")
+        else:
+            print("[UPT][PROBE] runner cfg: plain ActorCritic (UPT_MOE=0)")

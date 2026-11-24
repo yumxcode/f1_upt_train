@@ -31,6 +31,19 @@ def main() -> None:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", ext_path, "--no-deps"])
 
     train_args = [a for a in sys.argv[1:]]
+    # UPT switches: --upt_phase_cond=1 / --upt_moe=1 / --upt_phase_reward=1 -> env vars read by the patch
+    _upt = {"--upt_phase_cond": "UPT_PHASE_COND", "--upt_moe": "UPT_MOE", "--upt_phase_reward": "UPT_PHASE_REWARD"}
+    _kept = []
+    for a in train_args:
+        _hit = False
+        for flag, env_name in _upt.items():
+            if a.startswith(flag + "="):
+                os.environ[env_name] = a.split("=", 1)[1]
+                print(f"[entry][UPT] {env_name}={os.environ[env_name]}")
+                _hit = True
+        if not _hit:
+            _kept.append(a)
+    train_args = _kept
     if not any(a.startswith("--motion_file") for a in train_args):
         raise SystemExit("entry_f1_train.py requires --motion_file (prebuilt npz)")
 
