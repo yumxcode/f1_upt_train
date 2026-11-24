@@ -28,7 +28,14 @@ def main() -> None:
     print(f"[entry] pip install -e {ext_path} --no-deps")
     # --no-deps: the IsaacLab image already provides every runtime dependency;
     # letting pip resolve deps would upgrade numpy/scipy and break isaac-sim.
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", ext_path, "--no-deps"])
+    # --no-build-isolation: the image already ships setuptools; build isolation tries to
+    # download build deps and died at "Installing build dependencies" on TASK_20261124_420.
+    install_cmd = [sys.executable, "-m", "pip", "install", "-e", ext_path, "--no-deps", "--no-build-isolation"]
+    try:
+        subprocess.check_call(install_cmd)
+    except subprocess.CalledProcessError:
+        print("[entry] no-build-isolation install failed; retrying with default isolation")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", ext_path, "--no-deps"])
 
     train_args = [a for a in sys.argv[1:]]
     # UPT switches: --upt_phase_cond=1 / --upt_moe=1 / --upt_phase_reward=1 -> env vars read by the patch
