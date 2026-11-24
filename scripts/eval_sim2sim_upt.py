@@ -58,6 +58,8 @@ def main():
     ap.add_argument("--record", default=None)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--push", action="store_true", help="P4 push impulse during P0")
+    ap.add_argument("--phase_obs_mode", default="zeros", choices=["zeros", "real"],
+                    help="UPT adds 4 obs dims unconditionally; 'zeros' matches training with UPT_PHASE_COND=0 (default), 'real' for UPT_PHASE_COND=1 policies")
     args = ap.parse_args()
     if args.seed is not None:
         torch.manual_seed(args.seed); np.random.seed(args.seed)
@@ -103,6 +105,26 @@ def main():
         ref_jpos = ref_jpos[:, perm]; ref_jvel = ref_jvel[:, perm]
     NPZ_BODY = [str(b) for b in md["body_names"]]
     anchor_npz_idx = NPZ_BODY.index("lumbar_pitch_link")
+    # ---- align reference so that frame 0 (stand prefix) sits at world origin with yaw 0,
+    # matching the robot's P0 stand pose (training resets the robot INTO the reference frame,
+    # so the policy has never seen a reference anchor metres away / yaw-rotated).
+    p0 = ref_bpos[0, 0].copy(); q0 = ref_bquat[0, 0]  # wxyz
+    yaw0 = np.arctan2(2 * (q0[0] * q0[3] + q0[1] * q0[2]), 1 - 2 * (q0[2] ** 2 + q0[3] ** 2))
+    cy, sy = np.cos(-yaw0), np.sin(-yaw0)
+    Rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
+    rel = ref_bpos - p0[None, None, :]
+    ref_bpos = (Rz @ rel.reshape(-1, 3).T).T.reshape(ref_bpos.shape)
+    ref_bpos[..., 2] = ref_bpos[..., 2] + p0[2]  # keep absolute heights
+    # rotate all body quats by Rz(-yaw0): q' = qz * q  (wxyz)
+    qz = np.array([np.cos(-yaw0 / 2), 0, 0, np.sin(-yaw0 / 2)])
+    def qmul(a, b):  # batched wxyz, shapes broadcast
+        a = np.asarray(a); b = np.asarray(b)
+        w1, x1, y1, z1 = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+        w2, x2, y2, z2 = b[..., 0], b[..., 1], b[..., 2], b[..., 3]
+        return np.stack([w1*w2 - x1*x2 - y1*y2 - z1*z2, w1*x2 + x1*w2 + y1*z2 - z1*y2,
+                         w1*y2 - x1*z2 + y1*w2 + z1*x2, w1*z2 + x1*y2 - y1*x2 + z1*w2], -1)
+    ref_bquat = qmul(qz, ref_bquat).astype(np.float32)
+    print(f"[align] ref frame0 root=({p0[0]:.2f},{p0[1]:.2f},{p0[2]:.2f}) yaw={np.degrees(yaw0):.1f}deg -> origin/yaw0 (heights kept)")
     anchor_mj = model.body("lumbar_pitch_link").id
     T = ref_jpos.shape[0]
     category = args.category if args.category != "auto" else str(md.get("category", "walk"))
@@ -141,8 +163,10 @@ def main():
     upt_obs = (obs_dim == 5 * action_dim + 15 + 4)
     # phase-rate exactly as in training (upt_commands.attach_phase_mode): gradient(phase)*fps, clamp +-10
     phase_dot = np.clip(np.gradient(phase) * fps, -10.0, 10.0).astype(np.float32) if len(phase) > 1 else np.zeros_like(phase)
+    use_real_phase = upt_obs and args.phase_obs_mode == "real"
     if upt_obs:
-        print(f"[upt] phase-conditioned policy detected (obs {obs_dim} = base {5*action_dim+15} + 4)")
+        print(f"[upt] obs {obs_dim} = base {5*action_dim+15} + 4 (UPT dims); phase_obs_mode={args.phase_obs_mode} -> "
+              f"{'REAL phase/mode' if use_real_phase else 'ZEROS (matches UPT_PHASE_COND=0 training)'}")
 
     def reset_to(frame=0, stand=False):
         mujoco.mj_resetData(model, data)
@@ -179,11 +203,20 @@ def main():
         anchor_pos_b, anchor_quat_b = pm.subtract_frame_transform(
             robot_anchor_pos, robot_anchor_quat, ref_bpos[t_ref, anchor_npz_idx], ref_bquat[t_ref, anchor_npz_idx])
         rot = pm.quat_to_rotmat(anchor_quat_b)
-        obs = np.concatenate([to_px(rjpos), to_px(rjvel), anchor_pos_b, rot[:, :2].flatten(),
-                              base_lin, base_ang, to_px(jpos - default_pos), to_px(jvel), last_action])
+        # IsaacLab obs-group order = config class attribute order:
+        #   [command(2*n) , upt_phase(4) , anchor_pos(3) , anchor_ori(6) , base_lin(3) , base_ang(3) , joint_pos(n) , joint_vel(n) , action(n)]
+        cmd_part = np.concatenate([to_px(rjpos), to_px(rjvel)])
+        rest = np.concatenate([anchor_pos_b, rot[:, :2].flatten(),
+                               base_lin, base_ang, to_px(jpos - default_pos), to_px(jvel), last_action])
         if upt_obs:
-            pdot = float(phase_dot[min(t_ref, len(phase_dot)-1)]) if mode_val else 0.0
-            obs = np.concatenate([obs, [np.sin(2*np.pi*phase_val), np.cos(2*np.pi*phase_val), pdot, float(mode_val)]]).astype(np.float32)
+            if use_real_phase:
+                pdot = float(phase_dot[min(t_ref, len(phase_dot)-1)]) if mode_val else 0.0
+                upt4 = np.array([np.sin(2*np.pi*phase_val), np.cos(2*np.pi*phase_val), pdot, float(mode_val)], np.float32)
+            else:
+                upt4 = np.zeros(4, np.float32)
+            obs = np.concatenate([cmd_part, upt4, rest]).astype(np.float32)
+        else:
+            obs = np.concatenate([cmd_part, rest]).astype(np.float32)
         with torch.no_grad():
             act = actor(pm.normalize_obs(torch.from_numpy(obs).unsqueeze(0), normalizer)).squeeze(0).numpy().astype(np.float32)
         return act, jpos, jvel, anchor_pos_b
@@ -367,7 +400,7 @@ def main():
     report = {
         "standard": "STANDARD_SIM2SIM v1.0",
         "checkpoint": args.checkpoint, "motion": args.motion, "category": category,
-        "obs_dim": obs_dim, "upt_phase_conditioned": upt_obs,
+        "obs_dim": obs_dim, "upt_obs_dims": upt_obs, "phase_obs_mode": args.phase_obs_mode,
         "phases": {"stand_s": args.stand_hold, "blend_s": args.blend, "track_s": len(it) * POLICY_DT, "stop_hold_s": args.stop_hold},
         "wall_s": round(wall, 1),
         "gates": gates,
