@@ -35,10 +35,17 @@ class F1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         super().__post_init__()
         # UPT C3 (MoE-lite): learned-router 2-expert final actor layer. Default off.
         if os.environ.get("UPT_MOE", "0") == "1":
-            # IsaacLab 2.x: the class lives on the policy cfg (RslRlActorCriticCfg.actor_critic_class),
-            # NOT on the runner cfg -- setting it here was silently ignored in Run D (TASK_20261125_151).
+            # IsaacLab 2.1.0 RslRlPpoActorCriticCfg selects the network by STRING: policy.class_name = "ActorCritic",
+            # resolved by rsl_rl's runner (resolve_callable: simple names searched inside rsl_rl packages;
+            # older runners: getattr(rsl_rl.modules, name)). Register the class under rsl_rl.modules and
+            # set the simple name -> works for both. (Two earlier hooks on actor_critic_class were silently ignored.)
+            import rsl_rl.modules as _mods
             from whole_body_tracking.tasks.tracking.config.f1.agents.upt_actor import UPTActorCritic
-            self.policy.actor_critic_class = UPTActorCritic
-            print(f"[UPT][PROBE] policy.actor_critic_class={getattr(self.policy, 'actor_critic_class', None).__name__} (MoE-lite ON)")
+            _mods.UPTActorCritic = UPTActorCritic
+            if hasattr(self.policy, "class_name"):
+                self.policy.class_name = "UPTActorCritic"
+            else:
+                self.policy.actor_critic_class = UPTActorCritic
+            print(f"[UPT][PROBE] MoE-lite ON: policy.class_name={getattr(self.policy, 'class_name', None)} rsl_rl.modules.UPTActorCritic={getattr(_mods, 'UPTActorCritic', None) is not None}")
         else:
-            print("[UPT][PROBE] policy.actor_critic_class unchanged (UPT_MOE=0)")
+            print("[UPT][PROBE] MoE-lite OFF (UPT_MOE=0): policy.class_name unchanged")
