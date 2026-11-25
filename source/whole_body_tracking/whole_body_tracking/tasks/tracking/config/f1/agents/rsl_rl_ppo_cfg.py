@@ -35,8 +35,10 @@ class F1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         super().__post_init__()
         # UPT C3 (MoE-lite): learned-router 2-expert final actor layer. Default off.
         if os.environ.get("UPT_MOE", "0") == "1":
+            # IsaacLab 2.x: the class lives on the policy cfg (RslRlActorCriticCfg.actor_critic_class),
+            # NOT on the runner cfg -- setting it here was silently ignored in Run D (TASK_20261125_151).
             from whole_body_tracking.tasks.tracking.config.f1.agents.upt_actor import UPTActorCritic
-            self.actor_critic_class = UPTActorCritic
-            print("[UPT][PROBE] runner cfg: actor_critic_class=UPTActorCritic (MoE-lite ON)")
+            self.policy.actor_critic_class = UPTActorCritic
+            print(f"[UPT][PROBE] policy.actor_critic_class={getattr(self.policy, 'actor_critic_class', None).__name__} (MoE-lite ON)")
         else:
-            print("[UPT][PROBE] runner cfg: plain ActorCritic (UPT_MOE=0)")
+            print("[UPT][PROBE] policy.actor_critic_class unchanged (UPT_MOE=0)")
