@@ -191,7 +191,7 @@ def main():
                         [str(x) for x in md["joint_names"]]])  # npz order
 
     # metrics buffers per phase
-    M = {k: [] for k in ("phase", "t", "anchor_err", "joint_err", "root_z", "root_xy",
+    M = {k: [] for k in ("phase", "t", "anchor_err", "joint_err", "root_z", "root_xy", "stand_dev_perjoint", "qpos_j",
                          "root_speed", "stand_dev", "L_contact", "R_contact", "L_slip", "R_slip",
                          "phi", "ref_contact_L", "ref_contact_R", "tau_max_frac")}
     foot_bodies = {s: model.body(f"{s}_ankle_roll").id for s in ("left", "right")}
@@ -254,7 +254,10 @@ def main():
         M["root_z"].append(float(data.qpos[2]))
         M["root_xy"].append(data.qpos[0:2].copy())
         M["root_speed"].append(float(np.linalg.norm(data.qvel[0:3])))
-        M["stand_dev"].append(float(np.mean(np.abs(jpos - to_px_inv_local(stand_j)))))
+        # jpos and stand_j are both in MJCF/npz joint order -> compare directly (no PhysX permutation)
+        M["stand_dev"].append(float(np.mean(np.abs(jpos - stand_j))))
+        M["stand_dev_perjoint"].append(np.abs(jpos - stand_j).astype(np.float32))
+        M["qpos_j"].append(jpos.astype(np.float32))
         for s in ("left", "right"):
             bid = foot_bodies[s]
             R = data.xmat[bid].reshape(3, 3)
@@ -391,6 +394,10 @@ def main():
     gates["S01_stand_xy_le_5cm"] = bool(len(xy0) and np.max(np.linalg.norm(xy0 - xy0[0], axis=1)) <= 0.05)
     gates["S01_stand_z_dev_le_2cm"] = bool(len(z0) and (np.max(z0) - np.min(z0)) <= 0.02)
     gates["S01_stand_jdev_p95_le_0p10"] = bool(len(sd0) and np.quantile(sd0, 0.95) <= 0.10)
+    stand_worst = None
+    if len(i0):
+        pj = np.stack([M["stand_dev_perjoint"][k] for k in i0]).mean(axis=0)  # (29,) mean |dev| per joint over P0
+        stand_worst = {"joint": joint_names_dof[int(pj.argmax())], "mean_abs_dev_rad": round(float(pj.max()), 3)}
     # S-02 stop
     ih = seg("P3_hold")
     vh = np.array(M["root_speed"])[ih] if ih else np.zeros(0)
@@ -415,7 +422,7 @@ def main():
         lc = np.array(M["L_contact"])[it]; rc = np.array(M["R_contact"])[it]
         sw = (1 - lc.astype(float)); swR = (1 - rc.astype(float))
         swings = np.where((sw[1:] > 0.5) & (sw[:-1] < 0.5))[0]
-        cadence = len(swings) / (len(it) * POLICY_DT) / 2.0
+        cadence = len(swings) / (len(it) * POLICY_DT)  # left-foot strides per second (per-foot cadence, band 0.55-1.6 Hz walk)
         airborne = float(np.mean((np.array(M["root_z"])[it] * 0)))  # placeholder: both feet off
         both_off = ((~lc) & (~rc)).astype(float)
         gates["S_W2_airborne_frac"] = float(both_off.mean())
@@ -439,13 +446,14 @@ def main():
             "joint_err_p50": float(np.quantile(je, 0.5)) if len(je) else None,
             "min_root_z": float(np.min(M["root_z"])),
             "stand_dev_p95_P0": float(np.quantile(sd0, 0.95)) if len(sd0) else None,
+            "stand_worst_joint_P0": stand_worst,
             "stop_speed_p95": float(np.quantile(vh, 0.95)) if len(vh) else None,
             "slip_p50": float(np.quantile(slip, 0.5)) if len(slip) else None,
         },
     }
     report["ALL_PASS"] = all(v for k, v in gates.items() if isinstance(v, bool))
     json.dump(report, open(args.out, "w"), indent=1)
-    np.savez(Path(args.out).with_suffix(".npz"), **{k: np.array(v) for k, v in M.items() if k != "t_ref"})
+    np.savez(Path(args.out).with_suffix(".npz"), **{k: np.array(v, dtype=object) if k == "root_xy" else np.array(v) for k, v in M.items() if k not in ("t_ref",)})
     print(json.dumps(report, indent=1)[:1200])
 
 if __name__ == "__main__":
