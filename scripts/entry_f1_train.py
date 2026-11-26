@@ -39,7 +39,8 @@ def main() -> None:
 
     train_args = [a for a in sys.argv[1:]]
     # UPT switches: --upt_phase_cond=1 / --upt_moe=1 / --upt_phase_reward=1 -> env vars read by the patch
-    _upt = {"--upt_phase_cond": "UPT_PHASE_COND", "--upt_moe": "UPT_MOE", "--upt_phase_reward": "UPT_PHASE_REWARD"}
+    _upt = {"--upt_phase_cond": "UPT_PHASE_COND", "--upt_moe": "UPT_MOE", "--upt_phase_reward": "UPT_PHASE_REWARD",
+            "--upt_stand_boost": "UPT_STAND_BOOST"}
     _kept = []
     for a in train_args:
         _hit = False
