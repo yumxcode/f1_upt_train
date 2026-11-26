@@ -54,3 +54,28 @@ def phase_obs(command, env_ids=None):
     pd = command._upt_phase_dot[ts].unsqueeze(-1)
     md = command._upt_mode[ts].float().unsqueeze(-1)
     return torch.cat([sc, pd, md], dim=-1)
+
+
+def stand_bin_boost(command, boost: float):
+    """C2 (stand/stop as first-class skills): sampling prior for time bins dominated by stand/stop frames (mode==0).
+    BeyondMimic's adaptive sampler draws bins ~ failure_count + uniform floor, so 'easy' stand/stop bins are
+    under-sampled and the policy drifts when asked to hold still (Run E/G': stand dev 0.15-0.18 rad vs gate 0.10).
+    This adds `boost * uniform_floor` to every stand bin (computed once from the mode array)."""
+    mask = getattr(command, "_upt_stand_bin_mask", None)
+    if mask is None:
+        mode = getattr(command, "_upt_mode", None)
+        bc = int(command.bin_count)
+        if mode is None:
+            mask = torch.zeros(bc, device=command.device)
+        else:
+            T = int(command.motion.time_step_total)
+            ts = torch.arange(T, device=command.device)
+            b = torch.clamp((ts * bc) // max(T, 1), 0, bc - 1)
+            m0 = (mode[:T] == 0).float()
+            cnt = torch.bincount(b, minlength=bc).clamp(min=1)
+            m0c = torch.bincount(b, weights=m0, minlength=bc)
+            mask = ((m0c / cnt) >= 0.5).float()
+        command._upt_stand_bin_mask = mask
+        print(f"[UPT][PROBE] stand-bin sampling prior: {int(mask.sum())}/{bc} bins flagged (mode==0 frac>=0.5), boost={boost}")
+    floor = command.cfg.adaptive_uniform_ratio / float(command.bin_count)
+    return float(boost) * floor * mask

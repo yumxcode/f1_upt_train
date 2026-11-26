@@ -262,6 +262,10 @@ class MotionCommand(CommandTerm):
 
         # Sample
         sampling_probabilities = self.bin_failed_count + self.cfg.adaptive_uniform_ratio / float(self.bin_count)
+        _upt_stand_boost = int(__import__("os").environ.get("UPT_STAND_BOOST", "0"))  # UPT C2: stand/stop sampling prior
+        if _upt_stand_boost:
+            from whole_body_tracking.tasks.tracking.mdp.upt_commands import stand_bin_boost
+            sampling_probabilities = sampling_probabilities + stand_bin_boost(self, _upt_stand_boost)
         sampling_probabilities = torch.nn.functional.pad(
             sampling_probabilities.unsqueeze(0).unsqueeze(0),
             (0, self.cfg.adaptive_kernel_size - 1),  # Non-causal kernel
