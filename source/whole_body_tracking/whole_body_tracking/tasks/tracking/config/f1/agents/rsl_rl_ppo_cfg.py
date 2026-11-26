@@ -40,12 +40,16 @@ class F1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
             # older runners: getattr(rsl_rl.modules, name)). Register the class under rsl_rl.modules and
             # set the simple name -> works for both. (Two earlier hooks on actor_critic_class were silently ignored.)
             import rsl_rl.modules as _mods
+            # the image's rsl_rl runner resolves the name with eval(policy_cfg.pop("class_name")) inside
+            # rsl_rl.runners.on_policy_runner -> the class must be a global of THAT module (TASK_20261126_157 NameError)
+            import rsl_rl.runners.on_policy_runner as _runner_mod
             from whole_body_tracking.tasks.tracking.config.f1.agents.upt_actor import UPTActorCritic
             _mods.UPTActorCritic = UPTActorCritic
+            _runner_mod.UPTActorCritic = UPTActorCritic
             if hasattr(self.policy, "class_name"):
                 self.policy.class_name = "UPTActorCritic"
             else:
                 self.policy.actor_critic_class = UPTActorCritic
-            print(f"[UPT][PROBE] MoE-lite ON: policy.class_name={getattr(self.policy, 'class_name', None)} rsl_rl.modules.UPTActorCritic={getattr(_mods, 'UPTActorCritic', None) is not None}")
+            print(f"[UPT][PROBE] MoE-lite ON: policy.class_name={getattr(self.policy, 'class_name', None)} modules={getattr(_mods, 'UPTActorCritic', None) is not None} runner_ns={getattr(_runner_mod, 'UPTActorCritic', None) is not None}")
         else:
             print("[UPT][PROBE] MoE-lite OFF (UPT_MOE=0): policy.class_name unchanged")
