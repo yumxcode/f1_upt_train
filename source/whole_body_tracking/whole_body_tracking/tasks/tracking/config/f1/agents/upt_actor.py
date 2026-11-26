@@ -50,7 +50,11 @@ class UPTActorCritic(nn.Module):
             with torch.no_grad():
                 moe.expert0.weight.copy_(old.weight); moe.expert0.bias.copy_(old.bias)
                 moe.expert1.weight.copy_(old.weight); moe.expert1.bias.copy_(old.bias)
-                moe.router.weight.copy_(torch.zeros_like(moe.router.weight))
+                # break the expert/router symmetry: identical experts + zero router receive identical gradients and
+                # never specialize (observed in Run H TASK_20261126_159: expert0==expert1, router==0 after 6000 iters)
+                moe.expert1.weight.add_(0.01 * torch.randn_like(moe.expert1.weight))
+                moe.expert1.bias.add_(0.01 * torch.randn_like(moe.expert1.bias))
+                moe.router.weight.copy_(0.1 / (old.in_features ** 0.5) * torch.randn_like(moe.router.weight))
             ac.actor[idx] = moe
             extra = sum(p.numel() for p in moe.parameters()) - sum(p.numel() for p in old.parameters())
             print(f"[UPT][PROBE] actor[{idx}] -> MoE (in={old.in_features}, out={old.out_features}, params +{extra})")
