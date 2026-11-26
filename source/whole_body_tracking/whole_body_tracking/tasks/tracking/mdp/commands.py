@@ -117,8 +117,8 @@ class MotionCommand(CommandTerm):
             robot_joint_names=self.robot.joint_names,
         )
         self.time_steps = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
-        if UPT_PHASE_COND:
-            attach_phase_mode(self)
+        if UPT_PHASE_COND or int(__import__("os").environ.get("UPT_STAND_BOOST", "0")):
+            attach_phase_mode(self)  # phase/mode needed by C1 (phase obs) and C2 (stand-bin prior)
         print(f"[UPT][PROBE] MotionCommand init: UPT_PHASE_COND={UPT_PHASE_COND}")
         self.body_pos_relative_w = torch.zeros(self.num_envs, len(cfg.body_names), 3, device=self.device)
         self.body_quat_relative_w = torch.zeros(self.num_envs, len(cfg.body_names), 4, device=self.device)

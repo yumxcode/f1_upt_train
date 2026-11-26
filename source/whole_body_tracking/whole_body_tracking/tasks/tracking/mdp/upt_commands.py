@@ -66,8 +66,9 @@ def stand_bin_boost(command, boost: float):
         mode = getattr(command, "_upt_mode", None)
         bc = int(command.bin_count)
         if mode is None:
-            mask = torch.zeros(bc, device=command.device)
-        else:
+            # mode array not attached yet (attach_phase_mode runs after the first resample) -> do not cache
+            return torch.zeros(bc, device=command.device)
+        if True:
             T = int(command.motion.time_step_total)
             ts = torch.arange(T, device=command.device)
             b = torch.clamp((ts * bc) // max(T, 1), 0, bc - 1)
@@ -76,6 +77,6 @@ def stand_bin_boost(command, boost: float):
             m0c = torch.bincount(b, weights=m0, minlength=bc)
             mask = ((m0c / cnt) >= 0.5).float()
         command._upt_stand_bin_mask = mask
-        print(f"[UPT][PROBE] stand-bin sampling prior: {int(mask.sum())}/{bc} bins flagged (mode==0 frac>=0.5), boost={boost}")
+        print(f"[UPT][PROBE] stand-bin sampling prior: {int(mask.sum())}/{bc} bins flagged (mode==0 frac>=0.5), boost={boost}, mode_len={int(mode.shape[0])}")
     floor = command.cfg.adaptive_uniform_ratio / float(command.bin_count)
     return float(boost) * floor * mask
